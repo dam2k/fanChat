@@ -13,7 +13,9 @@ after the LW event. In this way we can cool down the RPI's temperature a little 
 You also enjoy it, but don't stress me!
 
 apt install libpigpio-dev
+
 ./make.sh
+
 ./fanChat
 
 Then check /var/log/messages for fanChat cool messages.
