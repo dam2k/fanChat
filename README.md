@@ -12,7 +12,7 @@ after the LW event. In this way we can cool down the RPI's temperature a little 
 
 You also enjoy it, but don't stress me!
 
-apt install libpigpio-dev
+apt install libpigpio-dev libbsd-dev
 
 ./make.sh
 
