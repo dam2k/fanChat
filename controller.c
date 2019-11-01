@@ -78,28 +78,28 @@ static int timespec_subtract(struct timespec *result, struct timespec *x, struct
 static int calculateFanSpeedByTemp(double T) {
 	int p=0; // fan stopped
 	if(T>57.5) {
-		p=39; // fan at 39% if temperature is above 57.5 degrees Celsius
+		p=40; // fan at 40% if temperature is above 57.5 degrees Celsius
 	}
-	if(T>59.1) {
-		p=45;
+	if(T>58.8) {
+		p=46;
 	}
-	if(T>61.3) {
-		p=49;
+	if(T>61.2) {
+		p=50;
 	}
 	if(T>63.0) {
-		p=53;
+		p=54;
 	}
 	if(T>65.3) {
-		p=57;
+		p=58;
 	}
 	if(T>67.0) {
-		p=62;
+		p=63;
 	}
 	if(T>70.1) {
-		p=68;
+		p=69;
 	}
 	if(T>73.7) {
-		p=76;
+		p=77;
 	}
 	if(T>76.4) {
 		p=88;
