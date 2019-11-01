@@ -22,5 +22,6 @@ Then check /var/log/messages for fanChat cool messages.
 Also check ps xaf to see what's going on:
 
 dino@firegate2:~/fanChat$ ps fxa | grep fanChat | grep -v grep
+
  2598 ?        S      0:00 fanChat: 58.913 C (LW: 57.600 C, HW: 69.300 C) - idle
 
