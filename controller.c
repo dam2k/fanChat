@@ -43,8 +43,8 @@ static double LW=57.6;
 static double HW=69.3;
 // Last Low Watermark Time: last time we reached Low Watermark
 static struct timespec LWT;
-// Trigger Time Timeout: after this time from Last Watermark the fan will be on
-const static struct timespec TTT = {.tv_sec=260, .tv_nsec=0 }; // 4min + 20 secs
+// Trigger Timeout: after this time from Last Watermark the fan will be on
+const static struct timespec TTT = {.tv_sec=270, .tv_nsec=0 }; // 4min + 30 secs
 
 /**
  * subtract the 'struct timespec' values X and Y, storing the result in RESULT.
@@ -115,28 +115,43 @@ static int calculateFanSpeedByTemp(double T) {
  * calculate usleep time depending on temperature. Higher temperatures require slower readings. Return useconds to sleep
  */
 static useconds_t calculateSleepDependingOnTemp(double T) {
-	useconds_t su=690000; // default is 0.69 seconds
+	useconds_t su=750000; // default is 0.75 seconds
 	
 	if(T>50.2) {
-		su= 750000;
+		su=1000000;
 	}
 	if(T>62.5) {
-		su= 990000;
+		su=1500000;
 	}
 	if(T>65.1) {
-		su=1400000;
+		su=2000000;
 	}
 	if(T>70.6) {
-		su=3200000;
+		su=3000000;
 	}
 	if(T>75.3) {
-		su=5800000;
+		su=4000000;
 	}
 	if(T>78.0) {
-		su=7700000;
+		su=5000000;
 	}
 	
 	return su;
+}
+
+/**
+ * update process title
+ */
+static void updateProcessTitle(double T, int p) {
+	char ops[8];
+	
+	if(p>0) {
+		strcpy(ops, "cooling");
+		setproctitle("%6.3f C (LW: %6.3f C, HW: %6.3f C) - %s at %d%%", T, LW, HW, ops, p);
+	} else {
+		strcpy(ops, "idle");
+		setproctitle("%6.3f C (LW: %6.3f C, HW: %6.3f C) - %s", T, LW, HW, ops);
+	}
 }
 
 /**
@@ -177,6 +192,7 @@ int controller(void) {
 				ttrdlsf=1;
 			}
 			fan_set(ret);
+			updateProcessTitle(T, ret);
 		}
 		
 		// 4- is the current temperature under the LW?
@@ -189,6 +205,7 @@ int controller(void) {
 			}
 			clock_gettime(CLOCK_BOOTTIME, &LWT);
 			fan_set(ret);
+			updateProcessTitle(T, ret);
 		}
 		
 		// 5- is LWT happened more than TT ago?
@@ -199,15 +216,16 @@ int controller(void) {
 		tmp=TTT;
 		if(timespec_subtract(&TT,&tmp,&et)==1) { // we've reached the TTT
 			if(ttrdlsf==0) {
-				syslog(LOG_NOTICE, "Trigger Time Timeout reached (too much time after LWT). Temp %6.3f C, set fan speed to %d%%", T, ret);
+				syslog(LOG_NOTICE, "Trigger Timeout reached (too much time after LWT). Temp %6.3f C, set fan speed to %d%%", T, ret);
 				ttrdlsf=1;
 				tahdlsf=0;
 				tbldlsf=0;
 			}
 			fan_set(ret);
+			updateProcessTitle(T, ret);
 		} else {
 			if(ttndlsf==0) {
-				syslog(LOG_INFO, "Trigger Time Timeout NOT again reached. Temp %6.3f C", T);
+				syslog(LOG_INFO, "Trigger Timeout NOT again reached. Temp %6.3f C", T);
 				ttndlsf=1;
 			}
 			// TT is the trigger time that we need to sleep before next round
@@ -219,6 +237,7 @@ int controller(void) {
 				tahdlsf=0;
 				tbldlsf=0;
 			}
+			updateProcessTitle(T, 0);
 		}
 		syslog(LOG_INFO, "Sleeping for %u useconds", su);
 		usleep(su);

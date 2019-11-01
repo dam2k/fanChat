@@ -34,6 +34,6 @@ set -x
 gcc -O2 -Wall -c -o cputemp.o cputemp.c
 gcc -O2 -Wall -c -o daemon.o daemon.c
 gcc -O2 -Wall -c -o fan.o fan.c
-gcc -O2 -Wall -c -o controller.o controller.c
+gcc -O2 -Wall -c -o controller.o controller.c $(pkg-config --cflags libbsd-overlay)
 
-gcc -O2 -Wall -o fanChat cputemp.o daemon.o fan.o controller.o -lpigpio
+gcc -O2 -Wall -o fanChat cputemp.o daemon.o fan.o controller.o -lpigpio $(pkg-config --cflags libbsd-overlay) $(pkg-config --libs libbsd-overlay) $(pkg-config --libs libbsd-ctor)
