@@ -140,15 +140,22 @@ static useconds_t calculateSleepDependingOnTemp(double T) {
 }
 
 /**
- * update process title
+ * update process title. If p==-1 retain the last given perc value
  */
 static void updateProcessTitle(double T, int p) {
 	char ops[8];
+	static int perc=0;
 	
+	if(p<0) { // restore the previously given value
+		p=perc;
+	}
 	if(p>0) {
+		perc=p; // save the value
 		strcpy(ops, "cooling");
 		setproctitle("%6.3f C (LW: %6.3f C, HW: %6.3f C) - %s at %d%%", T, LW, HW, ops, p);
-	} else {
+	}
+	if(p==0) {
+		perc=p; // save the value
 		strcpy(ops, "idle");
 		setproctitle("%6.3f C (LW: %6.3f C, HW: %6.3f C) - %s", T, LW, HW, ops);
 	}
@@ -237,7 +244,7 @@ int controller(void) {
 				tahdlsf=0;
 				tbldlsf=0;
 			}
-			updateProcessTitle(T, 0);
+			updateProcessTitle(T, -1);
 		}
 		syslog(LOG_INFO, "Sleeping for %u useconds", su);
 		usleep(su);
