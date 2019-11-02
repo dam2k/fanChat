@@ -9,8 +9,11 @@ Since I really hate when the fan is always on at low speed, I thinked of using a
 If the cpu's temperature is below the LW the fan will be shut down, and when the cpu's temperature raises above the HW the fan
 will come into play at the right speed. Also, there is a trigger timeout that will fire if the fan is down for more then a few minutes
 after the LW event. In this way we can cool down the RPI's temperature a little bit without reaching the HW or stressing us too much.
+NOTE: it's advisable to upgrade to the last raspbian buster (based on debian 10) and install the latest firmware that is well known to
+drop rpi temperature down without touching performance. To do so, you need to apt update ; apt upgrade ; apt install rpi-eeprom rpi-eeprom-images
+and reboot.
 
-You also enjoy it, but don't stress me!
+Enjoy it!!
 
 apt install libpigpio-dev libbsd-dev
 

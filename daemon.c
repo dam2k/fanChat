@@ -17,7 +17,7 @@
  * If the cpu's temperature is below the LW the fan will be shut down, and when the cpu's temperature raises above the HW the fan
  * will come into play at the right speed. Also, there is a trigger timeout that will fire if the fan is down for more then a few minutes
  * after the LW event. In this way we can cool down the RPI's temperature a little bit without reaching the HW or stressing us too much.
- * You also enjoy it, but don't stress me!
+ * Enjoy it!!
  */
 
 /**
