@@ -45,7 +45,7 @@
 #include "controller.h"
 
 // Low Watermark: at this temperature the fan will be off
-static double LW=56.8;
+static double LW=56.9;
 // High Watermark: at this temperature the fan will be on
 static double HW=69.2;
 // Last Low Watermark Time: last time we reached Low Watermark
