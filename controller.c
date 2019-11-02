@@ -38,13 +38,13 @@
 #include "controller.h"
 
 // Low Watermark: at this temperature the fan will be off
-static double LW=57.6;
+static double LW=56.8;
 // High Watermark: at this temperature the fan will be on
-static double HW=69.3;
+static double HW=69.2;
 // Last Low Watermark Time: last time we reached Low Watermark
 static struct timespec LWT;
 // Trigger Timeout: after this time from Last Watermark the fan will be on
-const static struct timespec TTT = {.tv_sec=270, .tv_nsec=0 }; // 4min + 30 secs
+const static struct timespec TTT = {.tv_sec=275, .tv_nsec=0 }; // 4min + 30 secs
 
 /**
  * subtract the 'struct timespec' values X and Y, storing the result in RESULT.
@@ -77,34 +77,34 @@ static int timespec_subtract(struct timespec *result, struct timespec *x, struct
  */
 static int calculateFanSpeedByTemp(double T) {
 	int p=0; // fan stopped
-	if(T>57.5) {
-		p=40; // fan at 40% if temperature is above 57.5 degrees Celsius
+	if(T>LW) {
+		p=40; // fan at 40% if temperature is above LW
 	}
-	if(T>58.8) {
+	if(T>58.7) {
 		p=46;
 	}
 	if(T>61.2) {
-		p=50;
+		p=51;
 	}
 	if(T>63.0) {
-		p=54;
+		p=56;
 	}
 	if(T>65.3) {
-		p=58;
+		p=60;
 	}
 	if(T>67.0) {
-		p=63;
+		p=65;
 	}
 	if(T>70.1) {
-		p=69;
+		p=70;
 	}
 	if(T>73.7) {
-		p=77;
+		p=80;
 	}
 	if(T>76.4) {
-		p=88;
+		p=90;
 	}
-	if(T>78.1) {
+	if(T>78.0) {
 		p=100;
 	}
 	
