@@ -51,7 +51,9 @@ static double HW=69.2;
 // Last Low Watermark Time: last time we reached Low Watermark
 static struct timespec LWT;
 // Trigger Timeout: after this time from Last Watermark the fan will be on
-const static struct timespec TTT = {.tv_sec=275, .tv_nsec=0 }; // 4min + 35 secs
+const static struct timespec TTT = {.tv_sec=273, .tv_nsec=0 }; // 4min + 33 secs
+// how many seconds after Last Watermark and still no temperature down
+const static time_t max_seconds_after_LWT_and_no_temp_down = TTT.tv_sec * 3;
 
 /**
  * subtract the 'struct timespec' values X and Y, storing the result in RESULT.
@@ -85,25 +87,25 @@ static int timespec_subtract(struct timespec *result, struct timespec *x, struct
 static int calculateFanSpeedByTemp(double T) {
 	int p=0; // fan stopped
 	if(T>LW) {
-		p=40; // fan at 40% if temperature is above LW
+		p=42; // fan at 42% if temperature is above LW
 	}
 	if(T>58.7) {
-		p=46;
+		p=47;
 	}
 	if(T>61.2) {
-		p=51;
+		p=52;
 	}
 	if(T>63.0) {
-		p=56;
+		p=57;
 	}
 	if(T>65.3) {
-		p=60;
+		p=61;
 	}
 	if(T>67.0) {
-		p=65;
+		p=66;
 	}
 	if(T>70.1) {
-		p=70;
+		p=72;
 	}
 	if(T>73.7) {
 		p=80;
@@ -235,8 +237,25 @@ int controller(void) {
 				tahdlsf=0;
 				tbldlsf=0;
 			}
-			fan_set(ret);
-			updateProcessTitle(T, ret);
+			if(et.tv_sec > max_seconds_after_LWT_and_no_temp_down) {
+				if(ttrdlsf==1) {
+					syslog(LOG_WARNING, "Too much time after LWT and temperature is not going down! Fan locked or load is high? Temp %6.3f C", T);
+					syslog(LOG_WARNING, "Trying to unlock fan, just in case, giving it a strong 0-100 pulse");
+					ttrdlsf=2;
+					
+					ret=0;
+					fan_set(ret);
+					updateProcessTitle(T, ret);
+					usleep(830000);
+				}
+				ret=100;
+				fan_set(ret);
+				updateProcessTitle(T, ret);
+				usleep(1000000);
+			} else {
+				fan_set(ret);
+				updateProcessTitle(T, ret);
+			}
 		} else {
 			if(ttndlsf==0) {
 				syslog(LOG_INFO, "Trigger Timeout NOT again reached. Temp %6.3f C", T);
