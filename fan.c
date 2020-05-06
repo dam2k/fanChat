@@ -47,9 +47,16 @@
 int fan_setup(void) {
 	int ret;
 	
+	// Disable pigpio support of the fifo and socket interfaces.
+	ret=gpioCfgInterfaces(PI_DISABLE_FIFO_IF | PI_DISABLE_SOCK_IF);
+	if(ret<0) {
+		fprintf(stderr, "Fatal error on disabling GPIO library interfaces, not required to handle fan\n");
+		return -1;
+	}
+	
 	ret=gpioInitialise();
 	if(ret<0) {
-		fprintf(stderr, "Fatal error initializing GPIO library to handle fan\n");
+		fprintf(stderr, "Fatal error on initializing GPIO library, required to handle fan\n");
 		return -1;
 	}
 	

@@ -181,7 +181,7 @@ int controller(void) {
 	int tahdlsf=0; // don't logspam flag for temperature above high watermask messages
 	int tbldlsf=0; // don't logspam flag for temperature below low watermask messages
 	int ttrdlsf=0; // don't logspam flag for trigger timeout reached messages
-	int ttndlsf=1; // don't logspam flag for trigger timeout not reaced messages
+	int ttndlsf=1; // don't logspam flag for trigger timeout not reached messages
 	
 	clock_gettime(CLOCK_BOOTTIME, &LWT); // resetting Last Low Watermark
 	syslog(LOG_NOTICE, "Low Watermark: %6.3f C, High Watermark: %6.3f C, Trigger Timeout: %lds+%ldns", LW, HW, TTT.tv_sec, TTT.tv_nsec);
