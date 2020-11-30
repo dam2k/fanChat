@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
 	daemonise();
 	
 	setlogmask(LOG_UPTO(LOG_NOTICE));
-	openlog(DAEMON_NAME, LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+	openlog(DAEMON_NAME, LOG_PID | LOG_NDELAY, LOG_LOCAL1);
 	syslog(LOG_NOTICE, "%s fan controller started, CPU temp is now %6.3f C.", DAEMON_NAME, T);
 	
 	/*
