@@ -89,13 +89,13 @@ static int calculateFanSpeedByTemp(double T) {
 	if(T>LW) {
 		p=42; // fan at 42% if temperature is above LW
 	}
-	if(T>58.7) {
+	if(T>58.9) {
 		p=47;
 	}
-	if(T>61.2) {
+	if(T>61.4) {
 		p=52;
 	}
-	if(T>63.0) {
+	if(T>63.1) {
 		p=57;
 	}
 	if(T>65.3) {
@@ -113,7 +113,7 @@ static int calculateFanSpeedByTemp(double T) {
 	if(T>76.4) {
 		p=90;
 	}
-	if(T>78.0) {
+	if(T>79.8) {
 		p=100;
 	}
 	
