@@ -94,12 +94,12 @@ static int calculateFanSpeedByTemp(double T) {
 	for(i=10; i>=0; i--) { // find the fan speed (from step 10 to 0)
 		ts=(LW+(tsbase*i));
 		if(T>ts) { // temperature exceed step i, returning proper fan speed
-			syslog(LOG_NOTICE, "Temp: %2.1f C > %2.1f (step %i (0/10)), fan set at %i%%\n", T, ts, i, fanstepsperc[i]);
+			//syslog(LOG_INFO, "Temp: %2.1f C > %2.1f (step %i (0/10)), fan set at %i%%\n", T, ts, i, fanstepsperc[i]);
 			return fanstepsperc[i];
 		}
 	}
 	
-	syslog(LOG_NOTICE, "Temp (%2.1f C) is under %2.1f, fan not needed at the moment\n", T, LW);
+	//syslog(LOG_INFO, "Temp (%2.1f C) is under %2.1f, fan not needed at the moment\n", T, LW);
 	return 0;
 }
 
