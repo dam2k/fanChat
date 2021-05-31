@@ -45,15 +45,17 @@
 #include "controller.h"
 
 // Low Watermark: at this temperature the fan will be off
-static double LW=56.9;
+static const double LW=59.6;
 // High Watermark: at this temperature the fan will be on
-static double HW=69.2;
+static const double HW=69.4;
 // Last Low Watermark Time: last time we reached Low Watermark
 static struct timespec LWT;
 // Trigger Timeout: after this time from Last Watermark the fan will be on
-const static struct timespec TTT = {.tv_sec=273, .tv_nsec=0 }; // 4min + 33 secs
+static const struct timespec TTT = {.tv_sec=273, .tv_nsec=0 }; // 4min + 33 secs
 // how many seconds after Last Watermark and still no temperature down
-const static time_t max_seconds_after_LWT_and_no_temp_down = TTT.tv_sec * 3;
+static const time_t max_seconds_after_LWT_and_no_temp_down = TTT.tv_sec * 3;
+// fan speed steps from 0% to 100%
+static const int fanstepsperc[11] = {42, 46, 52, 57, 61, 66, 72, 80, 88, 94, 100};
 
 /**
  * subtract the 'struct timespec' values X and Y, storing the result in RESULT.
@@ -85,39 +87,20 @@ static int timespec_subtract(struct timespec *result, struct timespec *x, struct
  * calculate fan speed (HW PWM driven) by the temperature. Return percentage chose.
  */
 static int calculateFanSpeedByTemp(double T) {
-	int p=0; // fan stopped
-	if(T>LW) {
-		p=42; // fan at 42% if temperature is above LW
-	}
-	if(T>58.9) {
-		p=47;
-	}
-	if(T>61.4) {
-		p=52;
-	}
-	if(T>63.1) {
-		p=57;
-	}
-	if(T>65.3) {
-		p=61;
-	}
-	if(T>67.0) {
-		p=66;
-	}
-	if(T>70.1) {
-		p=72;
-	}
-	if(T>73.7) {
-		p=80;
-	}
-	if(T>76.4) {
-		p=90;
-	}
-	if(T>79.8) {
-		p=100;
+	int i;
+	double tsbase, ts, max=79.5;
+	
+	tsbase=(max-LW)/10;
+	for(i=10; i>=0; i--) { // find the fan speed (from step 10 to 0)
+		ts=(LW+(tsbase*i));
+		if(T>ts) { // temperature exceed step i, returning proper fan speed
+			syslog(LOG_INFO, "Temp: %2.1f C > %2.1f (step %i (0/10)), fan set at %i%%\n", T, ts, i, fanstepsperc[i]);
+			return fanstepsperc[i];
+		}
 	}
 	
-	return p;
+	syslog(LOG_INFO, "Temp (%2.1f C) is under %2.1f, fan not needed at the moment\n", T, LW);
+	return 0;
 }
 
 /**
@@ -141,7 +124,7 @@ static useconds_t calculateSleepDependingOnTemp(double T) {
 	if(T>75.3) {
 		su=4000000;
 	}
-	if(T>78.0) {
+	if(T>77.6) {
 		su=5000000;
 	}
 	
@@ -161,12 +144,12 @@ static void updateProcessTitle(double T, int p) {
 	if(p>0) {
 		perc=p; // save the value
 		strcpy(ops, "cooling");
-		setproctitle("%6.3f C (LW: %6.3f C, HW: %6.3f C) - %s at %d%%", T, LW, HW, ops, p);
+		setproctitle("%2.1f C (LW: %2.1f C, HW: %2.1f C) - %s at %d%%", T, LW, HW, ops, p);
 	}
 	if(p==0) {
 		perc=p; // save the value
 		strcpy(ops, "idle");
-		setproctitle("%6.3f C (LW: %6.3f C, HW: %6.3f C) - %s", T, LW, HW, ops);
+		setproctitle("%2.1f C (LW: %2.1f C, HW: %2.1f C) - %s", T, LW, HW, ops);
 	}
 }
 
@@ -184,7 +167,7 @@ int controller(void) {
 	int ttndlsf=1; // don't logspam flag for trigger timeout not reached messages
 	
 	clock_gettime(CLOCK_BOOTTIME, &LWT); // resetting Last Low Watermark
-	syslog(LOG_NOTICE, "Low Watermark: %6.3f C, High Watermark: %6.3f C, Trigger Timeout: %lds+%ldns", LW, HW, TTT.tv_sec, TTT.tv_nsec);
+	syslog(LOG_NOTICE, "Low Watermark: %2.1f C, High Watermark: %2.1f C, Trigger Timeout: %lds+%ldns", LW, HW, TTT.tv_sec, TTT.tv_nsec);
 	
 	while(1) {
 		// 1- get the current temperature
@@ -193,7 +176,7 @@ int controller(void) {
 			syslog(LOG_ERR, "ERROR: Cannot read CPU temperature! Assuming temperature is not so high.");
 			T=58;
 		} else {
-			syslog(LOG_INFO, "CPU temperature is %6.3f C.", T);
+			syslog(LOG_INFO, "CPU temperature is %2.1f C.", T);
 		}
 		
 		// 2- calculate the right fan speed in case we need to put the fan ON
@@ -202,7 +185,7 @@ int controller(void) {
 		// 3- is the current temperature above the HW?
 		if(T>=HW) {
 			if(tahdlsf==0) {
-				syslog(LOG_NOTICE, "Temp %6.3f C above HW (%6.3f C), set fan speed to %d%%", T, HW, ret);
+				syslog(LOG_NOTICE, "Temp %2.1f C above HW (%2.1f C), set fan speed to %d%%", T, HW, ret);
 				tahdlsf=1;
 				tbldlsf=0;
 				ttrdlsf=1;
@@ -214,7 +197,7 @@ int controller(void) {
 		// 4- is the current temperature under the LW?
 		if(T<=LW) {
 			if(tbldlsf==0) {
-				syslog(LOG_NOTICE, "Temp %6.3f C below LW (%6.3f C), set fan speed to %d%%", T, LW, ret);
+				syslog(LOG_NOTICE, "Temp %2.1f C below LW (%2.1f C), set fan speed to %d%%", T, LW, ret);
 				tbldlsf=1;
 				tahdlsf=0;
 				ttrdlsf=0;
@@ -232,14 +215,14 @@ int controller(void) {
 		tmp=TTT;
 		if(timespec_subtract(&TT,&tmp,&et)==1) { // we've reached the TTT
 			if(ttrdlsf==0) {
-				syslog(LOG_NOTICE, "Trigger Timeout reached (too much time after LWT). Temp %6.3f C, set fan speed to %d%%", T, ret);
+				syslog(LOG_NOTICE, "Trigger Timeout reached (too much time after LWT). Temp %2.1f C, set fan speed to %d%%", T, ret);
 				ttrdlsf=1;
 				tahdlsf=0;
 				tbldlsf=0;
 			}
 			if(et.tv_sec > max_seconds_after_LWT_and_no_temp_down) {
 				if(ttrdlsf==1) {
-					syslog(LOG_WARNING, "Too much time after LWT and temperature is not going down! Fan locked or load is high? Temp %6.3f C", T);
+					syslog(LOG_WARNING, "Too much time after LWT and temperature is not going down! Fan locked or load is high? Temp %2.1f C", T);
 					syslog(LOG_WARNING, "Trying to unlock fan, just in case, giving it a strong 0-100 pulse");
 					ttrdlsf=2;
 					
@@ -258,7 +241,7 @@ int controller(void) {
 			}
 		} else {
 			if(ttndlsf==0) {
-				syslog(LOG_INFO, "Trigger Timeout NOT again reached. Temp %6.3f C", T);
+				syslog(LOG_INFO, "Trigger Timeout NOT again reached. Temp %2.1f C", T);
 				ttndlsf=1;
 			}
 			// TT is the trigger time that we need to sleep before next round
