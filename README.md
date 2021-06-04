@@ -1,5 +1,5 @@
 # fanChat
-Melopero's FanHat Raspberry pi FAN controller daemon rethinked from scratch and written in C
+Melopero Fan Hat Raspberry pi FAN controller daemon rethinked from scratch and written in C
 
 The Melopero FAN HAT for Raspberry Pi 4 is a cool (freddo!! :-)) fan driver for Raspberry Pi 4. It works using GPIO PIN 18 that has
 hardware driven PWM capabilities. This way they can handle fan speed changing the PIN's duty cycle.
