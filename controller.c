@@ -48,14 +48,21 @@
 static const double LW=59.6;
 // High Watermark: at this temperature the fan will be on
 static const double HW=69.4;
+// Max fan speed will be reached when temperature rise above this one
+static const double max=79.4;
 // Last Low Watermark Time: last time we reached Low Watermark
 static struct timespec LWT;
-// Trigger Timeout: after this time from Last Watermark the fan will be on
+// Trigger Timeout: after this time from Last Watermark the fan will be on (if temperature is above low watermark)
 static const struct timespec TTT = {.tv_sec=273, .tv_nsec=0 }; // 4min + 33 secs
 // how many seconds after Last Watermark and still no temperature down
-static const time_t max_seconds_after_LWT_and_no_temp_down = TTT.tv_sec * 3;
-// fan speed steps from 0% to 100%
-static const int fanstepsperc[11] = {42, 46, 52, 57, 61, 66, 72, 80, 88, 94, 100};
+static const time_t max_seconds_after_LWT_and_no_temp_down = TTT.tv_sec * 2;
+/*
+  Fan speed steps. When the fan is ON its speed can be incremented by steps from 0 to 10, where step 0 is 42%, step 1 is 46%, and so on.
+  Step 0 will be on LW, Step 10 will be on max, btw the fan will be ALWAYS ON ONLY IF the temperature exceeds HW, eventually the Trigger timeout
+  will fire if temperature stands between LW and HW. Under LW the fan will be off.
+*/
+//                          STEPS:    0   1   2   3   4   5   6   7   8   9   10
+static const int fanstepsperc[11] = {42, 46, 52, 57, 61, 66, 72, 80, 88, 94, 100}; // %
 
 /**
  * subtract the 'struct timespec' values X and Y, storing the result in RESULT.
@@ -88,7 +95,7 @@ static int timespec_subtract(struct timespec *result, struct timespec *x, struct
  */
 static int calculateFanSpeedByTemp(double T) {
 	int i;
-	double tsbase, ts, max=79.5;
+	double tsbase, ts;
 	
 	tsbase=(max-LW)/10;
 	for(i=10; i>=0; i--) { // find the fan speed (from step 10 to 0)
