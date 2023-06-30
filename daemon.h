@@ -55,3 +55,6 @@
 extern atomic_int e_flag;
 // if (e_flag) { /* signal trapped, we should exit */ }
 
+// fan at maximum speed for a while
+extern atomic_int fanonforawhile;
+

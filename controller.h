@@ -37,6 +37,9 @@
  * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+// how many seconds the fan should run at full speed when sigusr1 has received
+#define FANONFORAWHILESECS 30
+
 /**
  * This is the controller, or main loop
  */

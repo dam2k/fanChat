@@ -52,11 +52,18 @@
 
 // exit flag
 atomic_int e_flag = ATOMIC_VAR_INIT(0);
+// fan at maximum speed for a while
+atomic_int fanonforawhile = ATOMIC_VAR_INIT(0);
 
 static void shutdown_by_signal(int signum, siginfo_t *info, void *ptr) {
 	//fprintf(stderr, "got trapped signal, going to terminate\n");
 	syslog(LOG_WARNING, "Caught signal %i (%s). Terminating process.", signum, strsignal(signum));
 	e_flag = 1;
+}
+
+static void fanonforawhile_by_signal(int signum, siginfo_t *info, void *ptr) {
+	fanonforawhile=10;
+	syslog(LOG_WARNING, "Caught signal %i (%s).", signum, strsignal(signum));
 }
 
 static void catch_sigterm() {
@@ -78,6 +85,17 @@ static void catch_sigint() {
 	
 	sigaction(SIGINT, &act_int, NULL);
 }
+
+static void catch_sigusr1() {
+	static struct sigaction act_usr1;
+	
+	sigemptyset(&act_usr1.sa_mask);
+	act_usr1.sa_sigaction = &fanonforawhile_by_signal;
+	act_usr1.sa_flags = SA_SIGINFO;
+	
+	sigaction(SIGUSR1, &act_usr1, NULL);
+}
+
 
 static void daemonise(void) {
 	pid_t p;
@@ -149,6 +167,7 @@ static void daemonise(void) {
 	// setup SIGTERM and SIGINT termination handlers
 	catch_sigterm();
 	catch_sigint();
+	catch_sigusr1();
 }
 
 int main(int argc, char *argv[]) {

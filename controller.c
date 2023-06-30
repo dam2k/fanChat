@@ -56,6 +56,7 @@ static struct timespec LWT;
 static const struct timespec TTT = {.tv_sec=273, .tv_nsec=0 }; // 4min + 33 secs
 // how many seconds after Last Watermark and still no temperature down
 static const time_t max_seconds_after_LWT_and_no_temp_down = TTT.tv_sec * 2;
+
 /*
   Fan speed steps. When the fan is ON its speed can be incremented by steps from 0 to 10, where step 0 is 42%, step 1 is 46%, and so on.
   Step 0 will be on LW, Step 10 will be on max, btw the fan will be ALWAYS ON ONLY IF the temperature exceeds HW, eventually the Trigger timeout
@@ -142,15 +143,20 @@ static useconds_t calculateSleepDependingOnTemp(double T) {
  * update process title. If p==-1 retain the last given perc value
  */
 static void updateProcessTitle(double T, int p) {
-	char ops[8];
+	char ops[14];
 	static int perc=0;
 	
 	if(p<0) { // restore the previously given value
 		p=perc;
 	}
-	if(p>0) {
+	if(p>0 && p<86) {
 		perc=p; // save the value
 		strcpy(ops, "cooling");
+		setproctitle("%2.1f C (LW: %2.1f C, HW: %2.1f C) - %s at %d%%", T, LW, HW, ops, p);
+	}
+	if(p>85) {
+		perc=p; // save the value
+		strcpy(ops, "TURBO cooling");
 		setproctitle("%2.1f C (LW: %2.1f C, HW: %2.1f C) - %s at %d%%", T, LW, HW, ops, p);
 	}
 	if(p==0) {
@@ -167,108 +173,127 @@ int controller(void) {
 	int ret;
 	double T;
 	useconds_t su;
-	struct timespec now, et, TT, tmp; // now: now, et: time elapsed from LWT, TT: Trigger Time, tmp: temporary counter
+	struct timespec now, et, TT, tmp, tusr; // now: now, et: time elapsed from LWT, TT: Trigger Time, tmp: temporary counter, tusr: sigusr1 signal driven
 	int tahdlsf=0; // don't logspam flag for temperature above high watermask messages
 	int tbldlsf=0; // don't logspam flag for temperature below low watermask messages
 	int ttrdlsf=0; // don't logspam flag for trigger timeout reached messages
 	int ttndlsf=1; // don't logspam flag for trigger timeout not reached messages
 	
+	clock_gettime(CLOCK_BOOTTIME, &tusr); // now
+	tusr.tv_sec-=1; // now - 1 second
+	
 	clock_gettime(CLOCK_BOOTTIME, &LWT); // resetting Last Low Watermark
 	syslog(LOG_NOTICE, "Low Watermark: %2.1f C, High Watermark: %2.1f C, Trigger Timeout: %lds+%ldns", LW, HW, TTT.tv_sec, TTT.tv_nsec);
 	
 	while(1) {
+		clock_gettime(CLOCK_BOOTTIME, &now);
+		
 		// 1- get the current temperature
 		ret=getcputemp(&T);
 		if(ret<0) {
 			syslog(LOG_ERR, "ERROR: Cannot read CPU temperature! Assuming temperature is not so high.");
 			T=58;
-		} else {
+		} /* else {
 			syslog(LOG_INFO, "CPU temperature is %2.1f C.", T);
-		}
+		} */
 		
-		// 2- calculate the right fan speed in case we need to put the fan ON
-		ret=calculateFanSpeedByTemp(T);
-		
-		// 3- is the current temperature above the HW?
-		if(T>=HW) {
-			if(tahdlsf==0) {
-				syslog(LOG_NOTICE, "Temp %2.1f C above HW (%2.1f C), set fan speed to %d%%", T, HW, ret);
-				tahdlsf=1;
-				tbldlsf=0;
-				ttrdlsf=1;
+		if(timespec_subtract(&tmp,&tusr,&now)==0) { // still let the fan at full speed...
+			//syslog(LOG_NOTICE, "Temp %2.1f C, fan at full speed for a while", T);
+			updateProcessTitle(T, 100);
+			su=1000000; // sleep for a second
+		} else {
+			// 2- calculate the right fan speed in case we need to put the fan ON
+			ret=calculateFanSpeedByTemp(T);
+			
+			// 3- is the current temperature above the HW?
+			if(T>=HW) {
+				if(tahdlsf==0) {
+					syslog(LOG_NOTICE, "Temp %2.1f C above HW (%2.1f C), set fan speed to %d%%", T, HW, ret);
+					tahdlsf=1;
+					tbldlsf=0;
+					ttrdlsf=1;
+				}
+				fan_set(ret);
+				updateProcessTitle(T, ret);
 			}
-			fan_set(ret);
-			updateProcessTitle(T, ret);
-		}
-		
-		// 4- is the current temperature under the LW?
-		if(T<=LW) {
-			if(tbldlsf==0) {
-				syslog(LOG_NOTICE, "Temp %2.1f C below LW (%2.1f C), set fan speed to %d%%", T, LW, ret);
-				tbldlsf=1;
-				tahdlsf=0;
-				ttrdlsf=0;
+			
+			// 4- is the current temperature under the LW?
+			if(T<=LW) {
+				if(tbldlsf==0) {
+					syslog(LOG_NOTICE, "Temp %2.1f C below LW (%2.1f C), set fan speed to %d%%", T, LW, ret);
+					tbldlsf=1;
+					tahdlsf=0;
+					ttrdlsf=0;
+				}
+				clock_gettime(CLOCK_BOOTTIME, &LWT);
+				fan_set(ret);
+				updateProcessTitle(T, ret);
 			}
-			clock_gettime(CLOCK_BOOTTIME, &LWT);
-			fan_set(ret);
-			updateProcessTitle(T, ret);
-		}
-		
-		// 5- is LWT happened more than TT ago?
-		clock_gettime(CLOCK_BOOTTIME, &now);
-		tmp=LWT;
-		timespec_subtract(&et, &now, &tmp); // time elapsed from LWT
-		su=calculateSleepDependingOnTemp(T);
-		tmp=TTT;
-		if(timespec_subtract(&TT,&tmp,&et)==1) { // we've reached the TTT
-			if(ttrdlsf==0) {
-				syslog(LOG_NOTICE, "Trigger Timeout reached (too much time after LWT). Temp %2.1f C, set fan speed to %d%%", T, ret);
-				ttrdlsf=1;
-				tahdlsf=0;
-				tbldlsf=0;
-			}
-			if(et.tv_sec > max_seconds_after_LWT_and_no_temp_down) {
-				if(ttrdlsf==1) {
-					syslog(LOG_WARNING, "Too much time after LWT and temperature is not going down! Fan locked or load is high? Temp %2.1f C", T);
-					syslog(LOG_WARNING, "Trying to unlock fan, just in case, giving it a strong 0-100 pulse");
-					ttrdlsf=2;
-					
-					ret=0;
+			
+			// 5- is LWT happened more than TT ago?
+			tmp=LWT;
+			timespec_subtract(&et, &now, &tmp); // time elapsed from LWT
+			su=calculateSleepDependingOnTemp(T);
+			tmp=TTT;
+			if(timespec_subtract(&TT,&tmp,&et)==1) { // we've reached the TTT
+				if(ttrdlsf==0) {
+					syslog(LOG_NOTICE, "Trigger Timeout reached (too much time after LWT). Temp %2.1f C, set fan speed to %d%%", T, ret);
+					ttrdlsf=1;
+					tahdlsf=0;
+					tbldlsf=0;
+				}
+				if(et.tv_sec > max_seconds_after_LWT_and_no_temp_down) {
+					if(ttrdlsf==1) {
+						syslog(LOG_WARNING, "Too much time after LWT and temperature is not going down! Fan locked or load is high? Temp %2.1f C", T);
+						syslog(LOG_WARNING, "Trying to unlock fan, just in case, giving it a strong 0-100 pulse");
+						ttrdlsf=2;
+						
+						ret=0;
+						fan_set(ret);
+						updateProcessTitle(T, ret);
+						usleep(830000);
+					}
+					ret=100;
 					fan_set(ret);
 					updateProcessTitle(T, ret);
-					usleep(830000);
+					usleep(1000000);
+				} else {
+					fan_set(ret);
+					updateProcessTitle(T, ret);
 				}
-				ret=100;
-				fan_set(ret);
-				updateProcessTitle(T, ret);
-				usleep(1000000);
 			} else {
-				fan_set(ret);
-				updateProcessTitle(T, ret);
+				if(ttndlsf==0) {
+					syslog(LOG_INFO, "Trigger Timeout NOT again reached. Temp %2.1f C", T);
+					ttndlsf=1;
+				}
+				// TT is the trigger time that we need to sleep before next round
+				if((TT.tv_sec==0) && ((TT.tv_nsec*1000) < su)) { // we need to wake up earlier
+					syslog(LOG_NOTICE, "We would wake up earlier: %ld usecs instead of %d usecs", (TT.tv_nsec*1000), su);
+					su=TT.tv_nsec*1000;
+					ttrdlsf=0;
+					ttndlsf=0;
+					tahdlsf=0;
+					tbldlsf=0;
+				}
+				updateProcessTitle(T, -1);
 			}
-		} else {
-			if(ttndlsf==0) {
-				syslog(LOG_INFO, "Trigger Timeout NOT again reached. Temp %2.1f C", T);
-				ttndlsf=1;
-			}
-			// TT is the trigger time that we need to sleep before next round
-			if((TT.tv_sec==0) && ((TT.tv_nsec*1000) < su)) { // we need to wake up earlier
-				syslog(LOG_NOTICE, "We would wake up earlier: %ld usecs instead of %d usecs", (TT.tv_nsec*1000), su);
-				su=TT.tv_nsec*1000;
-				ttrdlsf=0;
-				ttndlsf=0;
-				tahdlsf=0;
-				tbldlsf=0;
-			}
-			updateProcessTitle(T, -1);
 		}
-		syslog(LOG_INFO, "Sleeping for %u useconds", su);
-		usleep(su);
-		
-		if(e_flag) { /* signal trapped, we should exit */
+		if(e_flag) { // signal trapped, we should exit
 			syslog(LOG_NOTICE, "Termination signal trapped, shutdown sequence initiated");
 			return 0;
 		}
+		if(fanonforawhile) { // signal trapped. Fan at maximum speed for a while
+			syslog(LOG_NOTICE, "Signal trapped, fan at maximum speed for a while (%i) seconds", FANONFORAWHILESECS);
+			fanonforawhile=0;
+			updateProcessTitle(T, 100);
+			fan_set(100);
+			clock_gettime(CLOCK_BOOTTIME, &tusr); // now
+			// after this time we should run normally
+			tusr.tv_sec+=FANONFORAWHILESECS;
+		}
+		
+		//syslog(LOG_INFO, "Sleeping for %u useconds", su);
+		usleep(su);
 	}
 	
 	return 0;
