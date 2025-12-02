@@ -25,6 +25,17 @@ apt install libpigpio-dev libbsd-dev
 ./fanChat
 ```
 
+There is a good chance that on newer raspberry pi os versions (debian 13) the package libpigpio-dev is no longer available.
+In this case, just do this:
+```
+cd /usr/src
+git clone https://github.com/joan2937/pigpio.git
+cd pigpio
+make install
+```
+
+Then continue to compile fanChat with ./make.sh.
+
 Then check /var/log/messages for fanChat cool messages.
 Also check ps xaf to see what's going on:
 ```
